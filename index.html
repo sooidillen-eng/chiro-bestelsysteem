@@ -1,0 +1,413 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chiro Bestelsysteem</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #f4f5f7;
+  color: #222;
+}
+header {
+  background: #f4c400;
+  padding: 20px;
+  text-align: center;
+}
+header h1 { margin: 0; }
+nav {
+  display: flex;
+  gap: 5px;
+  padding: 10px;
+  background: white;
+}
+nav button {
+  flex: 1;
+  padding: 13px 5px;
+  border: none;
+  border-radius: 8px;
+  background: #ddd;
+  font-weight: bold;
+}
+nav button.active {
+  background: #f4c400;
+}
+main { padding: 15px; }
+.card {
+  background: white;
+  padding: 15px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 6px #0001;
+}
+input, select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  margin: 6px 0 14px;
+  border: 1px solid #ccc;
+  border-radius: 7px;
+  font-size: 16px;
+}
+.product {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 12px 0;
+}
+.product input {
+  width: 65px;
+  margin: 0;
+}
+button.action {
+  background: #222;
+  color: white;
+  border: none;
+  padding: 13px;
+  border-radius: 8px;
+  width: 100%;
+  font-weight: bold;
+  cursor: pointer;
+}
+button.ready {
+  background: #18864b;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  width: 100%;
+  margin-top: 10px;
+}
+.order {
+  border-left: 6px solid #f4c400;
+}
+.order h3 { margin-top: 0; }
+.small { color: #666; font-size: 13px; }
+.status {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 20px;
+  background: #eee;
+  font-size: 12px;
+}
+.hidden { display: none; }
+#melding {
+  background: #d9f8e5;
+  border: 2px solid #18864b;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  display: none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>🍽️ Chiro Bestelsysteem</h1>
+  <p>Chiro Kontakt Voortkapel</p>
+</header>
+
+<nav>
+  <button class="active" onclick="toon('bestellen',this)">Bestellen</button>
+  <button onclick="toon('keuken',this)">Keuken</button>
+  <button onclick="toon('bar',this)">Bar</button>
+  <button onclick="toon('overzicht',this)">Overzicht</button>
+</nav>
+
+<main>
+
+<!-- BESTELLEN -->
+<section id="bestellen">
+  <div class="card">
+    <h2>Nieuwe bestelling</h2>
+
+    <label>Naam medewerker</label>
+    <input id="medewerker" placeholder="Wie neemt de bestelling op?">
+
+    <label>Tafelnummer</label>
+    <input id="tafel" type="number" min="1" placeholder="Bijvoorbeeld 7">
+
+    <h3>🍴 Eten</h3>
+    <div id="eten"></div>
+
+    <h3>🥤 Drinken</h3>
+    <div id="drinken"></div>
+
+    <button class="action" onclick="plaatsBestelling()">
+      BESTELLING PLAATSEN
+    </button>
+  </div>
+</section>
+
+<!-- KEUKEN -->
+<section id="keuken" class="hidden">
+  <h2>👨‍🍳 Keukenscherm</h2>
+  <div id="keukenLijst"></div>
+</section>
+
+<!-- BAR -->
+<section id="bar" class="hidden">
+  <h2>🥤 Barscherm</h2>
+  <div id="barLijst"></div>
+</section>
+
+<!-- OVERZICHT -->
+<section id="overzicht" class="hidden">
+  <h2>📊 Bestellingenoverzicht</h2>
+  <div class="card" id="statistieken"></div>
+  <div id="alleBestellingen"></div>
+</section>
+
+<!-- MELDING -->
+<div id="melding">
+  <h2>🔔 Bestelling klaar!</h2>
+  <p id="meldingTekst"></p>
+  <button class="action" onclick="sluitMelding()">OK</button>
+</div>
+
+</main>
+
+<script>
+
+// PRODUCTEN AANPASSEN
+const producten = {
+  eten: [
+    "Croque monsieur",
+    "Spaghetti",
+    "Hamburger",
+    "Frieten",
+    "Pannenkoek"
+  ],
+  drinken: [
+    "Cola",
+    "Fanta",
+    "Water",
+    "Sprite",
+    "Ice Tea"
+  ]
+};
+
+let bestellingen = [];
+let volgendNummer = 1;
+
+// PRODUCTEN TONEN
+function maakProducten() {
+  ["eten", "drinken"].forEach(type => {
+    document.getElementById(type).innerHTML =
+      producten[type].map((naam, i) => `
+        <div class="product">
+          <label>${naam}</label>
+          <input type="number" min="0" value="0"
+            id="${type}_${i}">
+        </div>
+      `).join("");
+  });
+}
+
+// NAVIGATIE
+function toon(pagina, knop) {
+  document.querySelectorAll("main section").forEach(s =>
+    s.classList.add("hidden")
+  );
+
+  document.getElementById(pagina).classList.remove("hidden");
+
+  document.querySelectorAll("nav button").forEach(b =>
+    b.classList.remove("active")
+  );
+
+  knop.classList.add("active");
+  updateSchermen();
+}
+
+// BESTELLING PLAATSEN
+function plaatsBestelling() {
+  const medewerker = document.getElementById("medewerker").value.trim();
+  const tafel = document.getElementById("tafel").value;
+
+  if (!medewerker || !tafel || Number(tafel) < 1) {
+    alert("Vul je naam en een geldig tafelnummer in!");
+    return;
+  }
+
+  let eten = [];
+  let drinken = [];
+
+  producten.eten.forEach((naam, i) => {
+    const aantal = Number(document.getElementById("eten_" + i).value);
+    if (aantal > 0) eten.push({naam, aantal, klaar:false});
+  });
+
+  producten.drinken.forEach((naam, i) => {
+    const aantal = Number(document.getElementById("drinken_" + i).value);
+    if (aantal > 0) drinken.push({naam, aantal, klaar:false});
+  });
+
+  if (eten.length === 0 && drinken.length === 0) {
+    alert("Je hebt nog geen producten gekozen!");
+    return;
+  }
+
+  bestellingen.push({
+    nummer: volgendNummer++,
+    medewerker,
+    tafel,
+    eten,
+    drinken,
+    tijd: new Date().toLocaleTimeString("nl-BE"),
+    gemeld: false
+  });
+
+  alert("Bestelling succesvol geplaatst!");
+
+  document.querySelectorAll("#bestellen input[type=number]").forEach(i => {
+    i.value = 0;
+  });
+
+  updateSchermen();
+}
+
+// GELUID
+function geluid() {
+  try {
+    const audio = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audio.createOscillator();
+    const volume = audio.createGain();
+
+    oscillator.connect(volume);
+    volume.connect(audio.destination);
+
+    oscillator.frequency.value = 850;
+    volume.gain.value = 0.15;
+
+    oscillator.start();
+    oscillator.stop(audio.currentTime + 0.5);
+  } catch(e) {}
+}
+
+// ONDERDEEL KLAAR MAKEN
+function maakKlaar(nummer, type) {
+  const bestelling = bestellingen.find(b => b.nummer === nummer);
+  if (!bestelling) return;
+
+  bestelling[type].forEach(p => p.klaar = true);
+
+  const allesKlaar =
+    bestelling.eten.every(p => p.klaar) &&
+    bestelling.drinken.every(p => p.klaar);
+
+  if (allesKlaar && !bestelling.gemeld) {
+    bestelling.gemeld = true;
+    toonMelding(bestelling);
+  }
+
+  updateSchermen();
+}
+
+// MELDING
+function toonMelding(bestelling) {
+  document.getElementById("meldingTekst").innerHTML =
+    `Bestelling #${bestelling.nummer} van ${bestelling.medewerker}
+     is klaar voor tafel ${bestelling.tafel}!`;
+
+  document.getElementById("melding").style.display = "block";
+  geluid();
+
+  // Browsermelding indien toegestaan
+  if ("Notification" in window &&
+      Notification.permission === "granted") {
+    new Notification("Bestelling klaar!", {
+      body: `Tafel ${bestelling.tafel} - Bestelling #${bestelling.nummer}`
+    });
+  }
+}
+
+function sluitMelding() {
+  document.getElementById("melding").style.display = "none";
+}
+
+// SCHERMEN VERVERSEN
+function updateSchermen() {
+  const keuken = document.getElementById("keukenLijst");
+  const bar = document.getElementById("barLijst");
+
+  keuken.innerHTML = "";
+  bar.innerHTML = "";
+
+  bestellingen.forEach(b => {
+
+    if (b.eten.length > 0) {
+      keuken.innerHTML += maakKaart(b, "eten");
+    }
+
+    if (b.drinken.length > 0) {
+      bar.innerHTML += maakKaart(b, "drinken");
+    }
+  });
+
+  const totaal = bestellingen.length;
+  const klaar = bestellingen.filter(b =>
+    b.eten.every(p => p.klaar) &&
+    b.drinken.every(p => p.klaar)
+  ).length;
+
+  document.getElementById("statistieken").innerHTML = `
+    <h3>Bestellingen: ${totaal}</h3>
+    <h3>Klaar: ${klaar}</h3>
+    <h3>Nog bezig: ${totaal-klaar}</h3>
+  `;
+
+  document.getElementById("alleBestellingen").innerHTML =
+    bestellingen.map(b => `
+      <div class="card">
+        <b>Bestelling #${b.nummer}</b>
+        <p>Tafel ${b.tafel} · ${b.medewerker}</p>
+        <span class="status">
+          ${b.eten.every(p=>p.klaar) &&
+            b.drinken.every(p=>p.klaar) ? "Alles klaar" : "In behandeling"}
+        </span>
+      </div>
+    `).join("");
+}
+
+// BESTELKAART
+function maakKaart(b, type) {
+  const items = b[type];
+  const allesKlaar = items.every(p => p.klaar);
+
+  return `
+    <div class="card order">
+      <h3>Bestelling #${b.nummer}</h3>
+      <p><b>Tafel ${b.tafel}</b></p>
+      <p class="small">Opgenomen door: ${b.medewerker}</p>
+      <p class="small">Tijd: ${b.tijd}</p>
+      <hr>
+      ${items.map(p => `
+        <p>
+          ${p.klaar ? "✅" : "⬜"}
+          ${p.aantal} × ${p.naam}
+        </p>
+      `).join("")}
+      ${allesKlaar
+        ? '<span class="status">Klaar</span>'
+        : `<button class="ready"
+             onclick="maakKlaar(${b.nummer},'${type}')">
+             ✓ ${type === "eten" ? "Eten" : "Drinken"} klaar
+           </button>`
+      }
+    </div>
+  `;
+}
+
+// START
+maakProducten();
+updateSchermen();
+
+</script>
+</body>
+</html>
